@@ -1,0 +1,61 @@
+{
+  "name": "json-segment-formatter",
+  "displayName": "JSON Segment Formatter",
+  "description": "Format JSON segments in any file while preserving non-JSON content",
+  "version": "0.0.1",
+  "publisher": "hKFirEs",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "keywords": [
+    "json",
+    "formatter",
+    "format",
+    "segment",
+    "log"
+  ],
+  "activationEvents": [
+    "onCommand:jsonSegmentFormatter.format"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jsonSegmentFormatter.format",
+        "title": "JSON Segment Formatter: Format JSON segments",
+        "category": "JSON Segment Formatter"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "jsonSegmentFormatter.format",
+        "key": "ctrl+alt+j",
+        "mac": "cmd+alt+j",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hkfires/JsonFormatter"
+  },
+  "homepage": "https://github.com/hkfires/JsonFormatter#readme",
+  "bugs": {
+    "url": "https://github.com/hkfires/JsonFormatter/issues"
+  }
+}
