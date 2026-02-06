@@ -2,7 +2,7 @@
   "name": "json-segment-formatter",
   "displayName": "JSON Segment Formatter",
   "description": "Format JSON segments in any file while preserving non-JSON content",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "hKFirEs",
   "license": "MIT",
   "engines": {

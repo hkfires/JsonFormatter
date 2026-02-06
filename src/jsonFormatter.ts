@@ -8,7 +8,7 @@
 interface JsonSegment {
     start: number;  // 段落起始位置
     end: number;    // 段落结束位置
-    json: string;   // 原始 JSON 文本
+    parsed: unknown; // 解析后的 JSON 值
 }
 
 export class JsonFormatter {
@@ -30,15 +30,18 @@ export class JsonFormatter {
             return text;  // 没有找到 JSON，保持原样
         }
 
-        // 从后往前替换，避免位置偏移
-        let result = text;
-        for (let i = segments.length - 1; i >= 0; i--) {
-            const segment = segments[i];
-            const formatted = this.formatJson(segment.json);
-            result = result.substring(0, segment.start) + formatted + result.substring(segment.end);
-        }
+        // 按顺序拼接，避免多次大字符串重建
+        const chunks: string[] = [];
+        let cursor = 0;
 
-        return result;
+        for (const segment of segments) {
+            chunks.push(text.slice(cursor, segment.start));
+            chunks.push(this.formatParsedJson(segment.parsed));
+            cursor = segment.end;
+        }
+        chunks.push(text.slice(cursor));
+
+        return chunks.join('');
     }
 
     /**
@@ -63,12 +66,16 @@ export class JsonFormatter {
 
                 if (end > start) {
                     const jsonText = text.substring(start, end);
+                    const parsed = this.parseJsonValue(jsonText);
 
                     // 验证是否是有效的 JSON
-                    if (this.looksLikeJson(jsonText)) {
-                        segments.push({ start, end, json: jsonText });
+                    if (parsed !== null) {
+                        segments.push({ start, end, parsed });
+                        i = end;
+                    } else {
+                        // 如果当前大段不是 JSON，继续向后扫描，避免漏掉内部/后续 JSON 段
+                        i = start + 1;
                     }
-                    i = end;
                 } else {
                     i++;
                 }
@@ -103,7 +110,8 @@ export class JsonFormatter {
                 continue;
             }
 
-            if (char === '"' || char === "'") {
+            // JSON 字符串只使用双引号；单引号可能只是普通字符（如 file's）
+            if (char === '"') {
                 inString = !inString;
                 continue;
             }
@@ -126,50 +134,118 @@ export class JsonFormatter {
     }
 
     /**
-     * 检查文本是否看起来像 JSON
-     */
-    private looksLikeJson(text: string): boolean {
-        const trimmed = text.trim();
-
-        // 尝试标准 JSON
-        if (this.tryParse(trimmed)) {
-            return true;
-        }
-
-        // 尝试宽松解析
-        const relaxed = this.tryRelaxedParse(trimmed);
-        return relaxed !== null;
-    }
-
-    /**
-     * 尝试解析标准 JSON
-     */
-    private tryParse(text: string): boolean {
-        try {
-            JSON.parse(text);
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
      * 格式化 JSON 文本
      */
-    private formatJson(text: string): string {
-        // 尝试标准格式化
-        if (this.tryParse(text)) {
-            return JSON.stringify(JSON.parse(text), null, this.indent);
+    private formatParsedJson(parsed: unknown): string {
+        const expanded = this.expandNestedJsonStrings(parsed);
+        return JSON.stringify(expanded, null, this.indent);
+    }
+
+    /**
+     * 解析 JSON（标准或宽松）
+     */
+    private parseJsonValue(text: string): unknown | null {
+        const trimmed = text.trim();
+        if (!trimmed) {
+            return null;
         }
 
-        // 尝试宽松格式化
-        const relaxed = this.tryRelaxedParse(text);
-        if (relaxed !== null) {
-            return JSON.stringify(JSON.parse(relaxed), null, this.indent);
+        try {
+            return JSON.parse(trimmed);
+        } catch {
+            if (!this.shouldTryRelaxedParse(trimmed)) {
+                return null;
+            }
+
+            const relaxed = this.tryRelaxedParse(trimmed);
+            if (relaxed !== null) {
+                try {
+                    return JSON.parse(relaxed);
+                } catch {
+                    return null;
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * 递归展开字符串中的 JSON（例如 arguments: "{\"a\":1}"）
+     */
+    private expandNestedJsonStrings(value: unknown, depth: number = 0): unknown {
+        // 避免极端深度导致递归风险
+        if (depth > 30) {
+            return value;
         }
 
-        // 无法解析，返回原样
-        return text;
+        if (Array.isArray(value)) {
+            for (let index = 0; index < value.length; index++) {
+                value[index] = this.expandNestedJsonStrings(value[index], depth + 1);
+            }
+            return value;
+        }
+
+        if (value !== null && typeof value === 'object') {
+            const objectValue = value as Record<string, unknown>;
+            for (const key of Object.keys(objectValue)) {
+                objectValue[key] = this.expandNestedJsonStrings(objectValue[key], depth + 1);
+            }
+            return objectValue;
+        }
+
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (this.looksLikeJsonContainer(trimmed) && this.mightContainJsonStructure(trimmed)) {
+                const nested = this.parseJsonValue(trimmed);
+                if (nested !== null) {
+                    return this.expandNestedJsonStrings(nested, depth + 1);
+                }
+            }
+        }
+
+        return value;
+    }
+
+    /**
+     * 快速判断字符串是否可能是 JSON 对象/数组
+     */
+    private looksLikeJsonContainer(text: string): boolean {
+        if (text.length < 2) {
+            return false;
+        }
+
+        const first = text[0];
+        const last = text[text.length - 1];
+        return (first === '{' && last === '}') || (first === '[' && last === ']');
+    }
+
+    /**
+     * 快速判断字符串内容是否像 JSON 结构，减少无效 JSON.parse 调用
+     */
+    private mightContainJsonStructure(text: string): boolean {
+        if (text[0] === '{') {
+            return text === '{}' || text.includes(':');
+        }
+
+        // 数组可能是对象数组，也可能是字符串/数字/布尔/null 数组
+        return text === '[]'
+            || text.includes(',')
+            || text.includes('{')
+            || text.includes('[')
+            || text.includes('"')
+            || /[\d\-tfn]/.test(text);
+    }
+
+    /**
+     * 仅在可能被宽松规则修复时尝试宽松解析
+     */
+    private shouldTryRelaxedParse(text: string): boolean {
+        return text.includes('//')
+            || text.includes('/*')
+            || text.includes(',}')
+            || text.includes(',]')
+            || text.includes(', }')
+            || text.includes(', ]');
     }
 
     /**
