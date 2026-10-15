@@ -20,17 +20,27 @@ export function activate(context: vscode.ExtensionContext) {
             const text = document.getText();
 
             try {
-                const formatted = formatter.format(text);
+                // Match VS Code's line-ending normalization before checking for changes.
+                const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+                const formatted = formatter.format(text).replace(/\r\n|\r|\n/g, eol);
+                if (formatted === text) {
+                    vscode.window.showInformationMessage('内容无需更改');
+                    return;
+                }
 
-                // 替换整个文档内容
+                // Replace the entire document only when the content has changed.
                 const fullRange = new vscode.Range(
                     document.positionAt(0),
                     document.positionAt(text.length)
                 );
 
-                await editor.edit(editBuilder => {
+                const applied = await editor.edit(editBuilder => {
                     editBuilder.replace(fullRange, formatted);
                 });
+                if (!applied) {
+                    vscode.window.showErrorMessage('格式化失败: 编辑器未应用更改');
+                    return;
+                }
 
                 vscode.window.showInformationMessage('JSON 格式化完成');
             } catch (error) {

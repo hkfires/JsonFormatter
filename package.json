@@ -2,7 +2,7 @@
   "name": "json-segment-formatter",
   "displayName": "JSON Segment Formatter",
   "description": "Format JSON segments in any file while preserving non-JSON content",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "publisher": "hKFirEs",
   "license": "MIT",
   "engines": {
@@ -44,7 +44,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
-    "test": "node --test \"out/test/**/*.test.js\""
+    "test": "node --test \"out/test/**/*.test.js\"",
+    "benchmark": "npm run compile && node scripts/benchmark.cjs"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
