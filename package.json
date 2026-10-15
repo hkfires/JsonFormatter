@@ -43,7 +43,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile"
+    "pretest": "npm run compile",
+    "test": "node --test \"out/test/**/*.test.js\""
   },
   "devDependencies": {
     "@types/node": "^18.0.0",

@@ -1,11 +1,30 @@
+# Editor / tool settings
 .vscode/**
-.vscode-test/**
+.claude/**
+.pi/**
+
+# Source code
 src/**
+**/*.ts
+
+# Build artifacts
+**/*.map
+out/test/**
+*.vsix
+
+# Tests
+.vscode-test/**
+
+# Development tools
+scripts/**
+
+# Config files
 .gitignore
 .yarnrc
-vsc-extension-quickstart.md
+package-lock.json
 **/tsconfig.json
 **/.eslintrc.json
-**/*.map
-**/*.ts
+
+# Misc
+vsc-extension-quickstart.md
 *.log
